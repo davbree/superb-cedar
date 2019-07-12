@@ -60,8 +60,8 @@ exports.onCreateNode = ({node, getNode, actions}, options) => {
     }
 };
 
-exports.createPages = ({graphql, getNode, actions}) => {
-    const {createPage} = actions;
+exports.createPages = ({graphql, getNode, actions, getNodesByType, createContentDigest}) => {
+    const {createPage, deletePage} = actions;
 
     // Use GraphQL to bring only the "id" and "html" (added by gatsby-transformer-remark)
     // properties of the MarkdownRemark nodes. Don't bring additional fields
@@ -89,12 +89,16 @@ exports.createPages = ({graphql, getNode, actions}) => {
         const siteNode = getNode('Site');
         const siteDataNode = getNode('SiteData');
 
+        const sitePageNodes = getNodesByType('SitePage');
+        const sitePageNodesByPath = _.keyBy(sitePageNodes, 'path');
+
         const pages = nodes.map(graphQLNode => {
             // Use the node id to get the underlying node. It is not exactly the
             // same node returned by GraphQL, because GraphQL resolvers might
             // transform node fields.
             const node = getNode(graphQLNode.id);
-            return {
+
+            const nodeData = {
                 url: node.fields.url,
                 relativePath: node.fields.relativePath,
                 relativeDir: node.fields.relativeDir,
@@ -103,6 +107,17 @@ exports.createPages = ({graphql, getNode, actions}) => {
                 frontmatter: node.frontmatter,
                 html: graphQLNode.html
             };
+
+            const existingPageNode = _.get(sitePageNodesByPath, node.fields.url);
+            if (existingPageNode &&
+                createContentDigest(_.pick(existingPageNode.context, Object.keys(nodeData))) !== 
+                createContentDigest(nodeData)) {
+
+                console.log(node.fields.url)
+                deletePage(existingPageNode);
+            }
+
+            return nodeData;
         });
 
         nodes.forEach(graphQLNode => {
