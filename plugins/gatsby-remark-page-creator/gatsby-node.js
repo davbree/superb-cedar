@@ -30,9 +30,9 @@ function findFileNode({node, getNode}) {
     return fileNode
 }
 
-exports.onCreateNode = ({node, getNode, actions}, options) => {
+exports.onCreateNode = ({node, getNode, actions, getNodesByType}, options) => {
 
-    const {createNodeField} = actions;
+    const {createNodeField, deletePage} = actions;
 
     if (node.internal.type === "MarkdownRemark") {
         let fileNode = findFileNode({node, getNode});
@@ -57,6 +57,14 @@ exports.onCreateNode = ({node, getNode, actions}, options) => {
         createNodeField({node, name: "base", value: fileNode.base});
         createNodeField({node, name: "ext", value: fileNode.ext});
         createNodeField({node, name: "name", value: fileNode.name});
+
+
+        const sitePageNodes = getNodesByType('SitePage');
+        const sitePageNodesByPath = _.keyBy(sitePageNodes, 'path');
+        const page = sitePageNodesByPath[url];
+        if (page) {
+            // deletePage(page);
+        }
     }
 };
 
@@ -92,6 +100,10 @@ exports.createPages = ({graphql, getNode, actions, getNodesByType, createContent
         const sitePageNodes = getNodesByType('SitePage');
         const sitePageNodesByPath = _.keyBy(sitePageNodes, 'path');
 
+        let toDelete = [];
+
+        let deleted = false;
+
         const pages = nodes.map(graphQLNode => {
             // Use the node id to get the underlying node. It is not exactly the
             // same node returned by GraphQL, because GraphQL resolvers might
@@ -115,10 +127,14 @@ exports.createPages = ({graphql, getNode, actions, getNodesByType, createContent
 
                 console.log(node.fields.url)
                 deletePage(existingPageNode);
+                deleted = true;
             }
 
             return nodeData;
         });
+        if (deleted) {
+            // return
+        }
 
         nodes.forEach(graphQLNode => {
             const node = getNode(graphQLNode.id);
@@ -126,6 +142,11 @@ exports.createPages = ({graphql, getNode, actions, getNodesByType, createContent
             const template = node.frontmatter.template;
             const component = path.resolve(`./src/templates/${template}.js`);
             createPage({
+                path: url,
+                component: component,
+                context: null
+            });
+            console.log(createPage({
                 path: url,
                 component: component,
                 context: {
@@ -143,7 +164,7 @@ exports.createPages = ({graphql, getNode, actions, getNodesByType, createContent
                         data: _.get(siteDataNode, 'data', null)
                     }
                 }
-            });
+            }));
         });
     });
 };
